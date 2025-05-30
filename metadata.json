@@ -1,0 +1,5 @@
+{
+  "name": "StatMe - Player Stat Card Generator",
+  "description": "An application that allows users to input player statistics, generates a player card, supports social sharing, and features a local leaderboard with upvote/downvote credibility.",
+  "requestFramePermissions": []
+}

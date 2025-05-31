@@ -1,4 +1,5 @@
 import React from 'react';
+import { IconWeight } from 'phosphor-react';
 
 export interface Attribute {
   id: string;
@@ -29,23 +30,26 @@ export type CategoryScores = {
 
 export interface IconProps extends React.SVGProps<SVGSVGElement> {
   className?: string;
+  size?: number | string;
+  weight?: IconWeight; // Phosphor icons use this prop
 }
 
-export interface PlayerLeaderboardEntry {
-  id: string; // Unique ID for the entry, could be playerName + timestamp or just a UUID
-  playerName: string;
+export interface LeaderboardEntry {
+  id: string; // Unique ID for the entry (usually derived from playerName)
+  playerName: string; 
   overallRating: number;
-  categoryScores: CategoryScores; // Store the detailed scores too
+  categoryScores: CategoryScores;
   upvotes: number;
   downvotes: number;
-  timestamp: number; // To sort by latest if ratings are same or for recency
-  imageUrl?: string; // Store image URL used at the time of saving
+  timestamp: number;
+  imageUrl?: string;
 }
 
 export type VoteStatus = 'up' | 'down' | undefined;
 
-export type PlayerVotes = {
+// Votes for entries within the single "Your Cards" list
+export type UserVotes = { 
   [entryId: string]: VoteStatus;
 };
 
-export type AppView = 'creator' | 'leaderboard';
+export type AppView = 'creator' | 'leaderboard'; // 'leaderboard' now refers to "Your Cards"

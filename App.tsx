@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { PlayerStats, CategoryScores, StatCategory, PlayerLeaderboardEntry, PlayerVotes, VoteStatus, AppView } from './types';
-import { CATEGORIES_DATA, DEFAULT_STAT_VALUE, DEFAULT_PLAYER_NAME, LEADERBOARD_STORAGE_KEY, VOTES_STORAGE_KEY } from './constants';
+import { PlayerStats, CategoryScores, StatCategory, LeaderboardEntry, UserVotes, AppView } from './types';
+import { CATEGORIES_DATA, DEFAULT_STAT_VALUE, DEFAULT_PLAYER_NAME, LEADERBOARD_ENTRIES_STORAGE_KEY, USER_VOTES_STORAGE_KEY } from './constants';
 import StatInputGroup from './components/StatInputGroup';
 import PlayerCard from './components/PlayerCard';
-import Leaderboard from './components/Leaderboard';
+import LeaderboardDisplay from './components/Leaderboard';
 import { IconMap } from './components/Icons';
 import { showToast } from './utils/toast';
 
 const App: React.FC = () => {
-  const [playerName, setPlayerName] = useState<string>(DEFAULT_PLAYER_NAME);
-  const [currentImageId, setCurrentImageId] = useState<number>(Math.floor(Math.random() * 1000));
+  const [currentName, setCurrentName] = useState<string>(DEFAULT_PLAYER_NAME);
+  const [currentImageId, setCurrentImageId] = useState<number>(() => Math.floor(Math.random() * 1000));
 
   const initializeStats = (): PlayerStats => {
     const initialStats: PlayerStats = {};
@@ -25,20 +25,19 @@ const App: React.FC = () => {
   const [categoryScores, setCategoryScores] = useState<CategoryScores>({});
   const [overallRating, setOverallRating] = useState<number>(0);
   
-  const [leaderboard, setLeaderboard] = useState<PlayerLeaderboardEntry[]>([]);
-  const [playerVotes, setPlayerVotes] = useState<PlayerVotes>({});
+  const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>([]);
+  const [userVotes, setUserVotes] = useState<UserVotes>({});
   const [currentView, setCurrentView] = useState<AppView>('creator');
 
-  // Load data from localStorage
   useEffect(() => {
     try {
-      const storedLeaderboard = localStorage.getItem(LEADERBOARD_STORAGE_KEY);
-      if (storedLeaderboard) {
-        setLeaderboard(JSON.parse(storedLeaderboard));
+      const storedEntries = localStorage.getItem(LEADERBOARD_ENTRIES_STORAGE_KEY);
+      if (storedEntries) {
+        setLeaderboardEntries(JSON.parse(storedEntries));
       }
-      const storedVotes = localStorage.getItem(VOTES_STORAGE_KEY);
+      const storedVotes = localStorage.getItem(USER_VOTES_STORAGE_KEY);
       if (storedVotes) {
-        setPlayerVotes(JSON.parse(storedVotes));
+        setUserVotes(JSON.parse(storedVotes));
       }
     } catch (error) {
       console.error("Failed to load data from localStorage:", error);
@@ -46,24 +45,23 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Save data to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem(LEADERBOARD_STORAGE_KEY, JSON.stringify(leaderboard));
+      localStorage.setItem(LEADERBOARD_ENTRIES_STORAGE_KEY, JSON.stringify(leaderboardEntries));
     } catch (error) {
-      console.error("Failed to save leaderboard to localStorage:", error);
-      showToast("Error saving leaderboard.", "error");
+      console.error("Failed to save entries to localStorage:", error);
+      showToast("Error saving your cards.", "error");
     }
-  }, [leaderboard]);
+  }, [leaderboardEntries]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(VOTES_STORAGE_KEY, JSON.stringify(playerVotes));
+      localStorage.setItem(USER_VOTES_STORAGE_KEY, JSON.stringify(userVotes));
     } catch (error) {
       console.error("Failed to save votes to localStorage:", error);
-       showToast("Error saving votes.", "error");
+      showToast("Error saving your votes.", "error");
     }
-  }, [playerVotes]);
+  }, [userVotes]);
 
   const calculateScores = useCallback(() => {
     const newCategoryScores: CategoryScores = {};
@@ -87,11 +85,7 @@ const App: React.FC = () => {
     });
 
     setCategoryScores(newCategoryScores);
-    if (totalCategories > 0) {
-      setOverallRating(Math.round(totalWeightedSumForOverall / totalCategories));
-    } else {
-      setOverallRating(0);
-    }
+    setOverallRating(totalCategories > 0 ? Math.round(totalWeightedSumForOverall / totalCategories) : 0);
   }, [stats]);
 
   useEffect(() => {
@@ -99,83 +93,80 @@ const App: React.FC = () => {
   }, [calculateScores]);
 
   const handleStatChange = (attributeId: string, value: number) => {
-    setStats(prevStats => ({
-      ...prevStats,
-      [attributeId]: value,
-    }));
+    setStats(prevStats => ({ ...prevStats, [attributeId]: value }));
   };
 
-  const handlePlayerNameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setPlayerName(event.target.value);
+  const handleCurrentNameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setCurrentName(event.target.value);
   };
-
+  
   const handleSaveToLeaderboard = () => {
-    if (!playerName || playerName === DEFAULT_PLAYER_NAME) {
-      showToast("Please enter a valid player name.", "error");
+    const trimmedName = currentName.trim();
+    if (!trimmedName || trimmedName === DEFAULT_PLAYER_NAME) {
+      showToast("Please enter a valid name for your card.", "error");
       return;
     }
-    const newEntry: PlayerLeaderboardEntry = {
-      // id: `${playerName.toLowerCase()}_${Date.now()}`, // Could lead to issues if name changes case
-      id: playerName.trim().toLowerCase().replace(/\s+/g, '-'), // More stable ID based on name
-      playerName: playerName.trim(),
+
+    const newEntryId = trimmedName.toLowerCase().replace(/\s+/g, '-');
+    const newEntry: LeaderboardEntry = {
+      id: newEntryId,
+      playerName: trimmedName,
       overallRating,
       categoryScores,
-      upvotes: 0,
-      downvotes: 0,
+      upvotes: 0, // Initialized for new, preserved for existing
+      downvotes: 0, // Initialized for new, preserved for existing
       timestamp: Date.now(),
       imageUrl: `https://picsum.photos/seed/${currentImageId}/200/200`,
     };
 
-    setLeaderboard(prevLeaderboard => {
-      const existingEntryIndex = prevLeaderboard.findIndex(entry => entry.id === newEntry.id);
+    setLeaderboardEntries(prevEntries => {
+      const existingEntryIndex = prevEntries.findIndex(entry => entry.id === newEntry.id);
       if (existingEntryIndex !== -1) {
-        // Update existing entry
-        const updatedEntry = {
-          ...prevLeaderboard[existingEntryIndex],
+        const updatedExistingEntry = {
+          ...prevEntries[existingEntryIndex], // Preserve votes
           overallRating: newEntry.overallRating,
           categoryScores: newEntry.categoryScores,
           timestamp: newEntry.timestamp,
-          imageUrl: newEntry.imageUrl, // Update image if it changed
+          imageUrl: newEntry.imageUrl,
         };
-        const newBoard = [...prevLeaderboard];
-        newBoard[existingEntryIndex] = updatedEntry;
-        showToast(`${newEntry.playerName}'s card updated on leaderboard!`, "success");
-        return newBoard;
+        const updatedEntries = [...prevEntries];
+        updatedEntries[existingEntryIndex] = updatedExistingEntry;
+        showToast(`Card for "${trimmedName}" updated!`, "success");
+        return updatedEntries;
       } else {
-        // Add new entry
-        showToast(`${newEntry.playerName} added to leaderboard!`, "success");
-        return [...prevLeaderboard, newEntry];
+        showToast(`Card for "${trimmedName}" saved!`, "success");
+        return [...prevEntries, newEntry];
       }
     });
-     // Reset for next potential card, or not? User might want to tweak current.
-    // setPlayerName(DEFAULT_PLAYER_NAME);
-    // setStats(initializeStats());
-    // setCurrentImageId(Math.floor(Math.random() * 1000)); 
   };
 
   const handleVote = (entryId: string, voteType: 'up' | 'down') => {
-    setLeaderboard(prevLeaderboard =>
-      prevLeaderboard.map(entry => {
+    setLeaderboardEntries(prevEntries =>
+      prevEntries.map(entry => {
         if (entry.id === entryId) {
-          const currentVote = playerVotes[entryId];
+          const currentVoteStatus = userVotes[entryId];
           let newUpvotes = entry.upvotes;
           let newDownvotes = entry.downvotes;
 
-          if (currentVote === voteType) { // Clicking same vote again - remove vote
-            if (voteType === 'up') newUpvotes--;
-            else newDownvotes--;
-            setPlayerVotes(prev => ({ ...prev, [entryId]: undefined }));
-            showToast("Vote removed.", "info");
-          } else { // New vote or changing vote
-            if (currentVote === 'up') newUpvotes--; // Was upvoted, now changing
-            if (currentVote === 'down') newDownvotes--; // Was downvoted, now changing
-            
+          // Revert previous vote if exists
+          if (currentVoteStatus === 'up') newUpvotes--;
+          if (currentVoteStatus === 'down') newDownvotes--;
+
+          // Apply new vote or clear if same vote
+          if (currentVoteStatus !== voteType) {
             if (voteType === 'up') newUpvotes++;
             else newDownvotes++;
-            setPlayerVotes(prev => ({ ...prev, [entryId]: voteType }));
-            showToast(`Vote cast for ${entry.playerName}!`, "success");
+            setUserVotes(prevVotes => ({ ...prevVotes, [entryId]: voteType }));
+             showToast(`Vote cast for ${entry.playerName}!`, "success");
+          } else { // Undoing vote
+            setUserVotes(prevVotes => {
+              const updatedVotes = { ...prevVotes };
+              delete updatedVotes[entryId];
+              return updatedVotes;
+            });
+            showToast("Vote removed.", "info");
           }
-          return { ...entry, upvotes: Math.max(0,newUpvotes), downvotes: Math.max(0,newDownvotes) };
+          return { ...entry, upvotes: Math.max(0, newUpvotes), downvotes: Math.max(0, newDownvotes) };
         }
         return entry;
       })
@@ -183,18 +174,16 @@ const App: React.FC = () => {
   };
   
   const resetCard = () => {
-    setPlayerName(DEFAULT_PLAYER_NAME);
+    setCurrentName(DEFAULT_PLAYER_NAME);
     setStats(initializeStats());
     setCurrentImageId(Math.floor(Math.random() * 1000));
     showToast("Card reset to default values.", "info");
-  }
+  };
 
-  const SaveIcon = IconMap['save'];
-  const ListIcon = IconMap['list'];
   const EditIcon = IconMap['edit'];
   const TrophyIcon = IconMap['trophy'];
+  const SaveIcon = IconMap['save'];
   const RefreshIcon = IconMap['refresh'];
-
 
   return (
     <div className="min-h-screen bg-slate-900 text-gray-100 p-4 sm:p-8 flex flex-col items-center">
@@ -202,10 +191,9 @@ const App: React.FC = () => {
         <h1 className="text-4xl sm:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-purple-500 to-pink-500 pb-2">
           StatMe
         </h1>
-        <p className="text-slate-400 text-md sm:text-lg">Craft your stats. Share your card.</p>
+        <p className="text-slate-400 text-md sm:text-lg">Craft your stats. View your cards.</p>
       </header>
 
-      {/* View Toggle Buttons */}
       <div className="mb-6 sm:mb-8 flex justify-center space-x-2 sm:space-x-4">
         <button
           onClick={() => setCurrentView('creator')}
@@ -213,7 +201,7 @@ const App: React.FC = () => {
           className={`px-4 py-2 sm:px-6 sm:py-3 rounded-lg font-semibold transition-all duration-200 ease-in-out flex items-center space-x-2
             ${currentView === 'creator' ? 'bg-sky-500 text-white shadow-lg ring-2 ring-sky-300' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}
         >
-          {EditIcon && <EditIcon className="w-5 h-5" />}
+          {EditIcon && <EditIcon className="w-5 h-5" weight="bold" />}
           <span>Card Creator</span>
         </button>
         <button
@@ -222,44 +210,44 @@ const App: React.FC = () => {
           className={`px-4 py-2 sm:px-6 sm:py-3 rounded-lg font-semibold transition-all duration-200 ease-in-out flex items-center space-x-2
             ${currentView === 'leaderboard' ? 'bg-purple-500 text-white shadow-lg ring-2 ring-purple-300' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}
         >
-          {TrophyIcon && <TrophyIcon className="w-5 h-5" />}
-          <span>Leaderboard</span>
+          {TrophyIcon && <TrophyIcon className="w-5 h-5" weight="bold" />}
+          <span>Your Cards</span>
         </button>
       </div>
 
       {currentView === 'creator' && (
         <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Input Section */}
           <div className="lg:pr-4 flex flex-col">
             <div className="mb-6 bg-slate-800 p-6 rounded-xl shadow-xl">
-              <label htmlFor="playerName" className="block text-lg font-medium text-sky-400 mb-2">Player Name</label>
+              <label htmlFor="currentName" className="block text-lg font-medium text-sky-400 mb-2">Your Name for this Card</label>
               <input
                 type="text"
-                id="playerName"
-                value={playerName}
-                onChange={handlePlayerNameChange}
-                placeholder="Enter player name"
+                id="currentName"
+                value={currentName}
+                onChange={handleCurrentNameChange}
+                placeholder="Enter card name"
                 className="w-full p-3 bg-slate-700 text-white border border-slate-600 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-colors"
               />
             </div>
             <div className="flex space-x-2 mb-6">
                 <button
-                onClick={handleSaveToLeaderboard}
-                disabled={!playerName || playerName === DEFAULT_PLAYER_NAME}
-                className="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors duration-150 ease-in-out flex items-center justify-center space-x-2"
+                  onClick={handleSaveToLeaderboard}
+                  disabled={!currentName.trim() || currentName.trim() === DEFAULT_PLAYER_NAME}
+                  title={(!currentName.trim() || currentName.trim() === DEFAULT_PLAYER_NAME) ? "Enter a valid name" : "Save card"}
+                  className="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors duration-150 ease-in-out flex items-center justify-center space-x-2"
                 >
-                {SaveIcon && <SaveIcon className="w-5 h-5" />}
-                <span>Save to Leaderboard</span>
+                  {SaveIcon && <SaveIcon className="w-5 h-5" weight="bold" />}
+                  <span>Save Card</span>
                 </button>
                  <button
-                onClick={resetCard}
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors duration-150 ease-in-out flex items-center justify-center space-x-2"
+                  onClick={resetCard}
+                  className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-colors duration-150 ease-in-out flex items-center justify-center space-x-2"
                 >
-                 {RefreshIcon && <RefreshIcon className="w-5 h-5" />}
+                 {RefreshIcon && <RefreshIcon className="w-5 h-5" weight="bold" />}
                 <span>Reset Card</span>
                 </button>
             </div>
-            <div className="space-y-6 overflow-y-auto max-h-[calc(100vh-350px)] lg:max-h-[calc(100vh-320px)] pr-2 custom-scrollbar">
+            <div className="space-y-6 overflow-y-auto max-h-[calc(100vh-420px)] lg:max-h-[calc(100vh-380px)] pr-2 custom-scrollbar">
               {CATEGORIES_DATA.map((category: StatCategory) => (
                 <StatInputGroup
                   key={category.id}
@@ -271,10 +259,9 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Player Card Section */}
           <div className="lg:sticky lg:top-8 lg:h-[calc(100vh-4rem)] flex items-start justify-center">
             <PlayerCard
-              playerName={playerName}
+              playerName={currentName}
               overallRating={overallRating}
               categoryScores={categoryScores}
               imageUrl={`https://picsum.photos/seed/${currentImageId}/200/200`}
@@ -284,14 +271,16 @@ const App: React.FC = () => {
       )}
 
       {currentView === 'leaderboard' && (
-        <Leaderboard
-          entries={leaderboard}
-          playerVotes={playerVotes}
-          onVote={handleVote}
-        />
+        <div className="w-full max-w-4xl mx-auto">
+          <LeaderboardDisplay
+            entries={leaderboardEntries}
+            userVotes={userVotes}
+            onVote={handleVote}
+          />
+        </div>
       )}
       <footer className="mt-12 text-center text-slate-500 text-sm">
-        <p>&copy; {new Date().getFullYear()} StatMe. Create. Share. Compete.</p>
+        <p>&copy; {new Date().getFullYear()} StatMe. Create. View. Rate.</p>
       </footer>
     </div>
   );

@@ -3,10 +3,10 @@ import { StatCategory } from './types';
 export const DEFAULT_STAT_VALUE = 50;
 export const MAX_STAT_VALUE = 100;
 export const MIN_STAT_VALUE = 0;
-export const DEFAULT_PLAYER_NAME = 'PLAYER NAME';
+export const DEFAULT_PLAYER_NAME = 'YOUR NAME';
 
-export const LEADERBOARD_STORAGE_KEY = 'statMeLeaderboard';
-export const VOTES_STORAGE_KEY = 'statMeVotes';
+export const LEADERBOARD_ENTRIES_STORAGE_KEY = 'statMeLeaderboardEntries';
+export const USER_VOTES_STORAGE_KEY = 'statMeUserVotes';
 
 
 export const CATEGORIES_DATA: StatCategory[] = [
@@ -24,7 +24,7 @@ export const CATEGORIES_DATA: StatCategory[] = [
   {
     id: 'competitiveness',
     name: 'Competitiveness',
-    iconKey: 'target',
+    iconKey: 'target', 
     color: 'text-red-400',
     attributes: [
       { id: 'drive', label: 'Drive', weight: 0.3 },
@@ -36,7 +36,7 @@ export const CATEGORIES_DATA: StatCategory[] = [
   {
     id: 'leadership',
     name: 'Leadership',
-    iconKey: 'users',
+    iconKey: 'users', 
     color: 'text-emerald-400',
     attributes: [
       { id: 'communication', label: 'Communication', weight: 0.3 },
